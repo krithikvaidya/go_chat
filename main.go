@@ -6,17 +6,17 @@ Protocol for sending/receiving messages:
 - Each message will be of length 256 bytes.
 - There will be 4 types of messages:
 
-1. authenticate <server_password> <client_username>  --> sent from client to server
-2. authenticated  --> sent from server to client
-3. send <message>  --> from client to server
-4. message <username> <message>  --> broadcasted from server to all other clients.
-5. terminate <reason>  --> from server to client, for graceful shutdown
+1. authenticate~<server_password>~<client_username>~\n  --> sent from client to server
+2. authenticated~\n  --> sent from server to client
+3. send~<username>~<message>~\n  --> from client to server, unicast message
+3. send~broadcast~<message>~\n  --> from client to server, broadcast message
+4. message~<username>~<type>~<message>~\n  --> from server to client(s). Type indicates unicast/broadcast.
+5. terminate~<reason>~\n  --> from server to client, for graceful shutdown
 
 */
 
 /**
 TODO:
-use panic for errors
 add support for utf-8 https://medium.com/rungo/string-data-type-in-go-8af2b639478
 add prompt for entering a message
 stuff labelled as todo
@@ -67,7 +67,7 @@ func init() {
 	flag.StringVar(&username, "n", "", "client username")
 	flag.Parse()
 
-	// log.SetFlags(0) // Turn off timestamps in log output.
+	log.SetFlags(0)                  // Turn off timestamps in log output.
 	rand.Seed(time.Now().UnixNano()) // For generating random username
 
 }
@@ -93,7 +93,7 @@ func main() {
 	go func() {
 
 		format := "Listening for shutdown signal..."
-		log.Printf("<<Debug>>: " + format)
+		log.Printf("\033[31m<<Debug>>:\033[0m " + format)
 
 		rcvd_sig := <-os_sigs // Wait till a SIGINT or a SIGQUIT is received
 
@@ -114,6 +114,7 @@ func main() {
 	if serverMode {
 
 		log.Printf("<<Debug>>: Running in server mode...")
+		log.Printf("\r<<Debug>>: Running inssd server mode...")
 		server.Server(password, host).Run(ctx) // Passing ctx should trigger a Done signal in Run() when a
 		// shutdown signal is encountered above.
 
