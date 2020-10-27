@@ -78,15 +78,15 @@ func (ser *server) listenForMessages(ctx context.Context, conn net.Conn, usernam
 
 		switch msg_arr[0] {
 
-		case "send":
+		case "broadcast":
 
-			msg_str = strings.Fields(msg_arr[1])[0]
+			msg_str = msg_arr[1]
 
 			log.Printf("<<Debug>>: Received message [%s] from %s", msg_str, username) /** Messaged received will be escaped,
 			  can do additional server-side validation
 			*/
 
-			to_send := fmt.Sprintf("message~%s~%s~\n", username, msg_str)
+			to_send := fmt.Sprintf("message~%s~%s~%s~\n", username, "broadcast", msg_str)
 			to_send = fmt.Sprintf("%-256v", to_send)
 
 			// Broadcast message to all other channels
@@ -109,6 +109,26 @@ func (ser *server) listenForMessages(ctx context.Context, conn net.Conn, usernam
 			ser.connectionsMutex.RUnlock()
 
 			log.Printf("<<Debug>>: Successfully broadcasted message [%s] from %s", msg_str, username)
+
+		case "pm":
+
+			recipient := msg_arr[1]
+			msg_str = msg_arr[2]
+
+			log.Printf("<<Debug>>: Received message [%s] from %s", msg_str, username)
+
+			to_send := fmt.Sprintf("message~%s~%s~%s~\n", username, "unicast", msg_str)
+			to_send = fmt.Sprintf("%-256v", to_send)
+
+			ser.connectionsMutex.RLock()
+
+			// TODO: check if recipient exists
+			connxn := ser.ClientConnections[recipient]
+			connxn.Write([]byte(to_send))
+
+			ser.connectionsMutex.RUnlock()
+
+			log.Printf("<<Debug>>: Successfully unicasted message [%s] from %s to %s", msg_str, username, recipient)
 
 		case "terminate":
 

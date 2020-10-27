@@ -8,8 +8,8 @@ Protocol for sending/receiving messages:
 
 1. authenticate~<server_password>~<client_username>~\n  --> sent from client to server
 2. authenticated~\n  --> sent from server to client
-3. send~<username>~<message>~\n  --> from client to server, unicast message
-3. send~broadcast~<message>~\n  --> from client to server, broadcast message
+3. pm~<username>~<message>~\n  --> from client to server, unicast message
+3. broadcast~<message>~\n  --> from client to server, broadcast message
 4. message~<username>~<type>~<message>~\n  --> from server to client(s). Type indicates unicast/broadcast.
 5. terminate~<reason>~\n  --> from server to client, for graceful shutdown
 
@@ -114,7 +114,6 @@ func main() {
 	if serverMode {
 
 		log.Printf("<<Debug>>: Running in server mode...")
-		log.Printf("\r<<Debug>>: Running inssd server mode...")
 		server.Server(password, host).Run(ctx) // Passing ctx should trigger a Done signal in Run() when a
 		// shutdown signal is encountered above.
 

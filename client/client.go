@@ -28,6 +28,7 @@ type client struct {
 }
 
 type message_struct struct {
+	Type    int
 	Message string
 	Sender  string
 }
@@ -73,13 +74,19 @@ func (cli *client) listenForServerMessages(ctx context.Context, conn net.Conn, m
 			return c == '~'
 		}
 
-		msg_arr := strings.FieldsFunc(msg_str, f) // supports single word messages
+		msg_arr := strings.FieldsFunc(msg_str, f)
+		msg_type := 0 // 0 indicates broadcast
 
-		msg_arr[2] = strings.Replace(msg_arr[2], "&tld;", "~", -1) // replace escaped tilde with normal tilde
+		if msg_arr[2] == "unicast" {
+			msg_type = 1
+		}
+
+		msg_arr[3] = strings.Replace(msg_arr[3], "&tld;", "~", -1) // replace escaped tilde with normal tilde
 
 		msg_channel <- message_struct{
+			Type:    msg_type,
 			Sender:  msg_arr[1],
-			Message: msg_arr[2],
+			Message: msg_arr[3],
 		}
 
 	}
@@ -92,10 +99,29 @@ func (cli *client) listenForClientMessages(sc bufio.Scanner, conn net.Conn) {
 		if sc.Scan() { // user entered a message to send
 
 			// TODO: check size to prevent overflow
-			msg_to_send := sc.Text()
-			msg_to_send = strings.Replace(msg_to_send, "~", "&tld;", -1) // replace all occurences of ~
+			msg_rcvd := sc.Text()
+			msg_rcvd = strings.Replace(msg_rcvd, "~", "&tld;", -1) // replace all occurences of ~
 
-			msg_to_send = "send~" + msg_to_send + "~\n"
+			// TODO: assume bad formatting of message is possible
+			first_space := strings.IndexByte(msg_rcvd, ' ')
+			second_space := first_space + 1 + strings.IndexByte(msg_rcvd[first_space+1:], ' ')
+
+			command := msg_rcvd[:first_space]
+
+			msg_to_send := ""
+
+			if command == "/broadcast" {
+
+				msg_to_send = "broadcast~" + msg_rcvd[first_space+1:] + "~\n"
+
+			} else { // /pm
+
+				recipient := msg_rcvd[first_space+1 : second_space]
+				msg := msg_rcvd[second_space+1:]
+				msg_to_send = "pm~" + recipient + "~" + msg + "~\n"
+
+			}
+
 			msg_to_send = fmt.Sprintf("%-256v", msg_to_send)
 
 			bytes_sent, err := conn.Write([]byte(msg_to_send))
@@ -165,6 +191,7 @@ func (cli *client) Run(ctx context.Context) {
 	}
 
 	log.Printf("<<Debug>>: Successfully authenticated.")
+	log.Printf("<<Info>>: Send a message in the following format: /pm <username> <message> or /broadcast <message>")
 
 	// Now let client send messages
 	sc := bufio.NewScanner(os.Stdin)
@@ -190,7 +217,13 @@ func (cli *client) Run(ctx context.Context) {
 		// case message, err := ioutil.ReadFull(conn, 256):  // Receive message from server
 		case rcvd_msg := <-msg_chan:
 
-			log.Printf("%s says: %s", rcvd_msg.Sender, rcvd_msg.Message)
+			msg_type := "broadcast"
+
+			if rcvd_msg.Type == 1 {
+				msg_type = "pm"
+			}
+
+			log.Printf("%s says (via %s): %s", rcvd_msg.Sender, msg_type, rcvd_msg.Message)
 
 		case <-term_chan:
 			return
