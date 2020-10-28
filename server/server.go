@@ -6,20 +6,12 @@ import (
 	"io"
 	"log"
 	"net"
-	"os"
 	"sync"
 
 	"strings"
+
+	shared "github.com/krithikvaidya/go_chat/shared"
 )
-
-func CheckError(err error) {
-
-	if err != nil {
-		log.Printf("<<Error>>: %s", err.Error())
-		os.Exit(1)
-	}
-
-}
 
 type server struct {
 	Password string
@@ -280,11 +272,11 @@ func (ser *server) listenForConnections(ctx context.Context, newConn chan net.Co
 		conn, err := listener.Accept()
 
 		if err != nil {
-			log.Printf("<<Error>>: %s", err.Error())
+			shared.ErrorLog(fmt.Sprintf("%s", err.Error()))
 			continue // Stop listening. TODO: investigate if this can only be caused by parent function returning
 		}
 
-		log.Printf("<<Debug>>: Accepted an incoming connection request from [%s].", conn.RemoteAddr())
+		shared.InfoLog(fmt.Sprintf("Accepted an incoming connection request from [%s].", conn.RemoteAddr()))
 
 		newConn <- conn
 	}
@@ -298,11 +290,11 @@ func (ser *server) Run(ctx context.Context) {
 	newCtx, cancel := context.WithCancel(ctx)
 
 	tcpAddr, err := net.ResolveTCPAddr("tcp4", ser.Address)
-	CheckError(err)
+	shared.CheckError(err)
 
 	// Start listening for TCP connections on the given port
 	listener, err := net.ListenTCP("tcp", tcpAddr)
-	CheckError(err)
+	shared.CheckError(err)
 
 	newConn := make(chan net.Conn)
 	go ser.listenForConnections(ctx, newConn, listener)
@@ -317,7 +309,7 @@ func (ser *server) Run(ctx context.Context) {
 
 		case <-ctx.Done(): // Context cancelled from main.go
 			cancel() // Propogate cancel to all spawned goroutines
-			log.Printf("<<Debug>>: Server connection handler received cancel request.")
+			shared.InfoLog("Server connection handler received cancel request.")
 			return
 
 		case new_conn := <-newConn:

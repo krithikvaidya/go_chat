@@ -33,11 +33,15 @@ func init() {
 }
 
 func InfoLog(str string) {
-	log.Printf(color.Green + "[INFO]" + color.Reset + ": " + str)
+	log.Printf(Green + "[INFO]" + Reset + ": " + str)
 }
 
-func ErrorLog(fostring, args ...interface{}) {
-	log.Printf(color.Red + "[ERROR]" + color.Reset + ": " + str)
+func ErrorLog(str string) {
+	log.Printf(Red + "[ERROR]" + Reset + ": " + str)
+}
+
+func MessageLog(sender, method, msg string) {
+	log.Printf(Blue+"Message Received"+Reset+": %s says (via %s): %s", sender, method, msg)
 }
 
 func CheckError(err error) {

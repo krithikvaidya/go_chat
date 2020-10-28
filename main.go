@@ -37,6 +37,7 @@ deploy to heroku
 
 import (
 	"flag"
+	"fmt"
 	"math/rand"
 	"time"
 
@@ -49,6 +50,7 @@ import (
 
 	client "github.com/krithikvaidya/go_chat/client"
 	server "github.com/krithikvaidya/go_chat/server"
+	shared "github.com/krithikvaidya/go_chat/shared"
 )
 
 var (
@@ -84,12 +86,12 @@ func main() {
 	go func() {
 
 		format := "Listening for shutdown signal..."
-		log.Printf("\033[31m<<Debug>>:\033[0m " + format)
+		shared.InfoLog(format)
 
 		rcvd_sig := <-os_sigs // Wait till a SIGINT or a SIGQUIT is received
 
 		format = "Signal received"
-		log.Printf("<<Debug>>: %v: %v", format, rcvd_sig)
+		shared.InfoLog(fmt.Sprintf("%v: %v", format, rcvd_sig))
 
 		signal.Stop(os_sigs) // Stop listening for signals
 		close(os_sigs)
@@ -102,13 +104,13 @@ func main() {
 
 	if serverMode {
 
-		log.Printf("<<Debug>>: Running in server mode...")
+		shared.InfoLog("Running in server mode...")
 		server.Server(password, host).Run(ctx) // Passing ctx should trigger a Done signal in Run() when a
 		// shutdown signal is encountered above.
 
 	} else {
 
-		log.Printf("<<Debug>>: Running in client mode...")
+		shared.InfoLog("Running in client mode...")
 		client.Client(password, host, username).Run(ctx)
 
 	}

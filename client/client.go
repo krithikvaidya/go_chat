@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"math/rand"
 	"net"
 	"os"
@@ -48,13 +47,13 @@ func (cli *client) listenForServerMessages(ctx context.Context, conn net.Conn, m
 
 			if err.Error() == "EOF" {
 
-				shared.ErrorInfo("Session terminated by server, exiting...")
+				shared.ErrorLog("Session terminated by server, exiting...")
 				term_chan <- true
 				return
 
 			} else {
 
-				shared.ErrorInfo(fmt.Sprintf("Error [%s] in receiving message from server, continuing...", err.Error()))
+				shared.ErrorLog(fmt.Sprintf("Error [%s] in receiving message from server, continuing...", err.Error()))
 				continue
 
 			}
@@ -120,11 +119,11 @@ func (cli *client) listenForClientMessages(sc bufio.Scanner, conn net.Conn) {
 			bytes_sent, err := conn.Write([]byte(msg_to_send))
 
 			if err != nil {
-				shared.LogInfo(fmt.Sprintf("%s", err.Error()))
+				shared.InfoLog(fmt.Sprintf("%s", err.Error()))
 				continue // continue the loop
 			}
 
-			shared.LogInfo(fmt.Sprintf("Sent %v bytes.", bytes_sent))
+			shared.InfoLog(fmt.Sprintf("Sent %v bytes.", bytes_sent))
 		}
 	}
 
@@ -146,16 +145,16 @@ func (cli *client) Run(ctx context.Context) {
 
 	// Check if host string is resolvable into tcp address
 	serverTcpAddr, err := net.ResolveTCPAddr("tcp", cli.ServerHost) // Change to tcp4 if reqd
-	CheckError(err)
+	shared.CheckError(err)
 
 	conn, err := net.DialTCP("tcp", nil, serverTcpAddr) // params are net, local address and remote address.
-	CheckError(err)
+	shared.CheckError(err)
 
 	// Successfully connected to server. Now authenticate
 
 	if cli.Username == "" {
 		cli.Username = randSeq(10)
-		shared.LogInfo(fmt.Sprintf("\nuname is %s\n", cli.Username))
+		shared.InfoLog(fmt.Sprintf("\nuname is %s\n", cli.Username))
 	}
 
 	auth_str := fmt.Sprintf("authenticate~%s~%s~\n", cli.ServerPassword, cli.Username)
@@ -164,25 +163,25 @@ func (cli *client) Run(ctx context.Context) {
 	bytes_sent, err := conn.Write([]byte(auth_str))
 
 	shared.CheckError(err)
-	shared.LogInfo(fmt.Sprintf("Sent %v bytes.", bytes_sent))
+	shared.InfoLog(fmt.Sprintf("Sent %v bytes.", bytes_sent))
 
 	// TODO: set timeout
 
 	msg := make([]byte, 256)
 	_, err = io.ReadFull(conn, msg) // read 256 bytes from server
 
-	CheckError(err)
+	shared.CheckError(err)
 
 	msg_str := string(msg) // error checking?
 	msg_arr := strings.Split(msg_str, "~")
 
 	if msg_arr[0] == "terminate" {
-		shared.ErrorInfo(fmt.Sprintf("Authentication failed. %s", msg_arr[1]))
+		shared.ErrorLog(fmt.Sprintf("Authentication failed. %s", msg_arr[1]))
 		return
 	}
 
-	shared.LogInfo("Successfully authenticated.")
-	shared.LogInfo("Send a message in the following format: /pm <username> <message> or /broadcast <message>")
+	shared.InfoLog("Successfully authenticated.")
+	shared.InfoLog("Message format: /pm <username> <message> or /broadcast <message>")
 
 	// Now let client send messages
 	sc := bufio.NewScanner(os.Stdin)
@@ -214,7 +213,7 @@ func (cli *client) Run(ctx context.Context) {
 				msg_type = "pm"
 			}
 
-			log.Printf("%s says (via %s): %s", rcvd_msg.Sender, msg_type, rcvd_msg.Message)
+			shared.MessageLog(rcvd_msg.Sender, msg_type, rcvd_msg.Message)
 
 		case <-term_chan:
 			return
