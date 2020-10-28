@@ -41,7 +41,7 @@ func ErrorLog(str string) {
 }
 
 func MessageLog(sender, method, msg string) {
-	log.Printf(Blue+"Message Received"+Reset+": %s says (via %s): %s", sender, method, msg)
+	log.Printf(Cyan+"Message Received"+Reset+": %s says (via %s): %s", sender, method, msg)
 }
 
 func CheckError(err error) {

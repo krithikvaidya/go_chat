@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"sync"
 
@@ -46,13 +45,13 @@ func (ser *server) listenForMessages(ctx context.Context, conn net.Conn, usernam
 
 			if err.Error() == "EOF" {
 
-				log.Printf("<<Debug>>: Session terminated by client [%s], exiting...", username)
+				shared.InfoLog(fmt.Sprintf("Session terminated by client [%s], exiting...", username))
 				term <- true
 				return
 
 			} else {
 
-				log.Printf("<<Error>>: Error [%s] in receiving message from [%s], continuing...", err.Error(), username)
+				shared.ErrorLog(fmt.Sprintf("Error [%s] in receiving message from [%s], continuing...", err.Error(), username))
 				continue
 
 			}
@@ -60,7 +59,7 @@ func (ser *server) listenForMessages(ctx context.Context, conn net.Conn, usernam
 		}
 
 		msg_str := string(msg) // Error checking?
-		// log.Printf("<<Debug>>: Got message %s", msg_str)
+		// shared.InfoLog(fmt.Sprintf("Got message %s", msg_str)
 
 		f := func(c rune) bool {
 			return c == '~'
@@ -74,7 +73,7 @@ func (ser *server) listenForMessages(ctx context.Context, conn net.Conn, usernam
 
 			msg_str = msg_arr[1]
 
-			log.Printf("<<Debug>>: Received message [%s] from %s", msg_str, username) /** Messaged received will be escaped,
+			shared.InfoLog(fmt.Sprintf("Received broadcast message [%s] from %s", msg_str, username)) /** Messaged received will be escaped,
 			  can do additional server-side validation
 			*/
 
@@ -100,14 +99,14 @@ func (ser *server) listenForMessages(ctx context.Context, conn net.Conn, usernam
 
 			ser.connectionsMutex.RUnlock()
 
-			log.Printf("<<Debug>>: Successfully broadcasted message [%s] from %s", msg_str, username)
+			shared.InfoLog(fmt.Sprintf("Successfully broadcasted message [%s] from %s", msg_str, username))
 
 		case "pm":
 
 			recipient := msg_arr[1]
 			msg_str = msg_arr[2]
 
-			log.Printf("<<Debug>>: Received message [%s] from %s", msg_str, username)
+			shared.InfoLog(fmt.Sprintf("Received message [%s] from %s to send to %s", msg_str, username, recipient))
 
 			to_send := fmt.Sprintf("message~%s~%s~%s~\n", username, "unicast", msg_str)
 			to_send = fmt.Sprintf("%-256v", to_send)
@@ -120,11 +119,11 @@ func (ser *server) listenForMessages(ctx context.Context, conn net.Conn, usernam
 
 			ser.connectionsMutex.RUnlock()
 
-			log.Printf("<<Debug>>: Successfully unicasted message [%s] from %s to %s", msg_str, username, recipient)
+			shared.InfoLog(fmt.Sprintf("Successfully unicasted message [%s] from %s to %s", msg_str, username, recipient))
 
 		case "terminate":
 
-			log.Printf("<<Debug>>: Shutting down connection with client %s", username)
+			shared.InfoLog(fmt.Sprintf("Recieved terminate. Shutting down connection with client %s", username))
 
 			ser.connectionsMutex.Lock()
 			defer ser.connectionsMutex.Unlock()
@@ -137,7 +136,7 @@ func (ser *server) listenForMessages(ctx context.Context, conn net.Conn, usernam
 
 		default:
 
-			log.Printf("<<Error>>: Unexpected message type: %s", msg_arr[0])
+			shared.ErrorLog(fmt.Sprintf("Unexpected message type: %s", msg_arr[0]))
 			// TODO: inform client
 			continue
 
@@ -157,7 +156,7 @@ func (ser *server) handleClient(ctx context.Context, conn net.Conn) {
 	_, err := io.ReadFull(conn, auth) // read 256 bytes from client.
 
 	if err != nil {
-		log.Printf("<<Error>>: In handleClient, %s", err.Error())
+		shared.ErrorLog(fmt.Sprintf("In handleClient, %s", err.Error()))
 		return
 	}
 
@@ -171,7 +170,7 @@ func (ser *server) handleClient(ctx context.Context, conn net.Conn) {
 
 	if auth_arr[0] != "authenticate" {
 
-		log.Printf("<<Error>>: In handleClient, Expected \"authenticate ....\", got \"%s ....\"", auth_arr[0])
+		shared.ErrorLog(fmt.Sprintf("In handleClient, Expected \"authenticate ....\", got \"%s ....\"", auth_arr[0]))
 		// TODO: gracefully cancel client
 		return
 
@@ -179,7 +178,7 @@ func (ser *server) handleClient(ctx context.Context, conn net.Conn) {
 
 	if auth_arr[1] != ser.Password {
 
-		log.Printf("<<Error>>: In handleClient, Expected password to be %s, got %s", ser.Password, auth_arr[1])
+		shared.ErrorLog(fmt.Sprintf("In handleClient, Expected password to be %s, got %s", ser.Password, auth_arr[1]))
 		sendStr := "terminate~Incorrect Password Received!~\n"
 		sendStr = fmt.Sprintf("%-256v", sendStr)
 		conn.Write([]byte(sendStr))
@@ -198,7 +197,7 @@ func (ser *server) handleClient(ctx context.Context, conn net.Conn) {
 	if present {
 
 		defer ser.connectionsMutex.Unlock()
-		log.Printf("<<Error>>: In handleClient, %s is already connected.", username)
+		shared.ErrorLog(fmt.Sprintf("In handleClient, %s is already connected.", username))
 		// TODO: cancel client
 		return
 
@@ -225,7 +224,7 @@ func (ser *server) handleClient(ctx context.Context, conn net.Conn) {
 
 		case <-ctx.Done():
 
-			log.Printf("<<Debug>>: Closing connection to %s...", username)
+			shared.InfoLog(fmt.Sprintf("Server terminated, closing connection to %s...", username))
 
 			ser.connectionsMutex.Lock()
 			defer ser.connectionsMutex.Unlock()
@@ -236,7 +235,7 @@ func (ser *server) handleClient(ctx context.Context, conn net.Conn) {
 
 		// case <-time.After(2 * time.Minute): // TODO: reset at every event
 
-		// 	log.Printf("<<Debug>>: Closing connection to %s due to timeout", username)
+		// 	shared.InfoLog(fmt.Sprintf("Closing connection to %s due to timeout", username)
 
 		// 	ser.connectionsMutex.Lock()
 		// 	defer ser.connectionsMutex.Unlock()
@@ -251,7 +250,7 @@ func (ser *server) handleClient(ctx context.Context, conn net.Conn) {
 
 			delete(ser.ClientConnections, username)
 
-			log.Printf("<<Debug>>: Closed connection to %s.", username)
+			shared.InfoLog(fmt.Sprintf("Closed connection to %s (client closed).", username))
 			return
 
 		}
