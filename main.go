@@ -4,14 +4,14 @@ package main
 
 Protocol for sending/receiving messages:
 - Each message will be of length 256 bytes.
-- There will be 4 types of messages:
+- There will be 6 types of messages:
 
 1. authenticate~<server_password>~<client_username>~\n  --> sent from client to server
 2. authenticated~\n  --> sent from server to client
 3. pm~<username>~<message>~\n  --> from client to server, unicast message
-3. broadcast~<message>~\n  --> from client to server, broadcast message
-4. message~<username>~<type>~<message>~\n  --> from server to client(s). Type indicates unicast/broadcast.
-5. terminate~<reason>~\n  --> from server to client, for graceful shutdown
+4. broadcast~<message>~\n  --> from client to server, broadcast message
+5. message~<username>~<type>~<message>~\n  --> from server to client(s). Type indicates unicast/broadcast.
+6. terminate~<reason>~\n  --> from server to client, for graceful shutdown
 
 */
 
@@ -22,12 +22,12 @@ add prompt for entering a message
 stuff labelled as todo
 check if contexts are propogated properly
 dockerize it  -- DONE
+allow for 1:1 communication (should be easy) -- done
 
 Possible extensions:
 use gorilla websockets instead of raw sockets, get a web-based frontend
 use RPCs for communication instead of raw sockets
 persist messages
-allow for 1:1 communication (should be easy)
 write tests
 add security
 allow for variable size messages
