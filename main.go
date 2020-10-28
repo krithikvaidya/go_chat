@@ -72,22 +72,13 @@ func init() {
 
 }
 
-func CheckError(err error) {
-
-	if err != nil {
-		log.Printf("<<Error>>: %s", err.Error())
-		os.Exit(1)
-	}
-
-}
-
 func main() {
 
 	base_ctx := context.Background()            // Creating an empty context
 	ctx, cancel := context.WithCancel(base_ctx) // Creating a cancellable context
 
 	os_sigs := make(chan os.Signal, 1)                      // Listen for OS signals, with buffer size 1
-	signal.Notify(os_sigs, syscall.SIGTERM, syscall.SIGINT) // SIGKILL, SIGQUIT?
+	signal.Notify(os_sigs, syscall.SIGTERM, syscall.SIGINT) // SIGKILL and SIGSTOP cannot be caught by a program
 
 	// Listen for shutdown signals on a separate thread
 	go func() {
@@ -109,8 +100,6 @@ func main() {
 
 	}()
 
-	var err error
-
 	if serverMode {
 
 		log.Printf("<<Debug>>: Running in server mode...")
@@ -123,7 +112,5 @@ func main() {
 		client.Client(password, host, username).Run(ctx)
 
 	}
-
-	CheckError(err)
 
 }

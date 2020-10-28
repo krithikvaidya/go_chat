@@ -10,16 +10,9 @@ import (
 	"net"
 	"os"
 	"strings"
+
+	shared "github.com/krithikvaidya/go_chat/shared"
 )
-
-func CheckError(err error) {
-
-	if err != nil {
-		log.Printf("<<Error>>: %s", err.Error())
-		os.Exit(1)
-	}
-
-}
 
 type client struct {
 	Username       string
@@ -55,13 +48,13 @@ func (cli *client) listenForServerMessages(ctx context.Context, conn net.Conn, m
 
 			if err.Error() == "EOF" {
 
-				log.Printf("<<Debug>>: Session terminated by server, exiting...")
+				shared.ErrorInfo("Session terminated by server, exiting...")
 				term_chan <- true
 				return
 
 			} else {
 
-				log.Printf("<<Error>>: Error [%s] in receiving message from server, continuing...", err.Error())
+				shared.ErrorInfo(fmt.Sprintf("Error [%s] in receiving message from server, continuing...", err.Error()))
 				continue
 
 			}
@@ -127,13 +120,11 @@ func (cli *client) listenForClientMessages(sc bufio.Scanner, conn net.Conn) {
 			bytes_sent, err := conn.Write([]byte(msg_to_send))
 
 			if err != nil {
-				log.Printf("<<Error>>: %s", err.Error())
+				shared.LogInfo(fmt.Sprintf("%s", err.Error()))
 				continue // continue the loop
 			}
 
-			log.Printf("<<Debug>>: Sent %v bytes.", bytes_sent)
-
-			// TODO: wait for ack?
+			shared.LogInfo(fmt.Sprintf("Sent %v bytes.", bytes_sent))
 		}
 	}
 
@@ -164,7 +155,7 @@ func (cli *client) Run(ctx context.Context) {
 
 	if cli.Username == "" {
 		cli.Username = randSeq(10)
-		log.Printf("\nuname is %s\n", cli.Username)
+		shared.LogInfo(fmt.Sprintf("\nuname is %s\n", cli.Username))
 	}
 
 	auth_str := fmt.Sprintf("authenticate~%s~%s~\n", cli.ServerPassword, cli.Username)
@@ -172,8 +163,8 @@ func (cli *client) Run(ctx context.Context) {
 
 	bytes_sent, err := conn.Write([]byte(auth_str))
 
-	CheckError(err)
-	log.Printf("<<Debug>>: Sent %v bytes.", bytes_sent)
+	shared.CheckError(err)
+	shared.LogInfo(fmt.Sprintf("Sent %v bytes.", bytes_sent))
 
 	// TODO: set timeout
 
@@ -186,12 +177,12 @@ func (cli *client) Run(ctx context.Context) {
 	msg_arr := strings.Split(msg_str, "~")
 
 	if msg_arr[0] == "terminate" {
-		log.Printf("<<Error>>: Authentication failed. %s", msg_arr[1])
+		shared.ErrorInfo(fmt.Sprintf("Authentication failed. %s", msg_arr[1]))
 		return
 	}
 
-	log.Printf("<<Debug>>: Successfully authenticated.")
-	log.Printf("<<Info>>: Send a message in the following format: /pm <username> <message> or /broadcast <message>")
+	shared.LogInfo("Successfully authenticated.")
+	shared.LogInfo("Send a message in the following format: /pm <username> <message> or /broadcast <message>")
 
 	// Now let client send messages
 	sc := bufio.NewScanner(os.Stdin)
