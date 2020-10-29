@@ -125,8 +125,7 @@ func main() {
 
 		shared.InfoLog("Running in client mode...")
 		client.Client(password, host, username).Run(ctx, main_term_chan)
-		os.Exit(0)
-		shared.InfoLog("last")
+		time.Sleep(5 * time.Second)
 	}
 
 }

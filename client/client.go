@@ -39,9 +39,9 @@ func Client(password string, host string, username string) *client {
 
 func getServerMessage(conn net.Conn, rcvd_msg chan string, exit_chan chan bool) {
 
-	defer func() {
-		shared.InfoLog("\n\ngetServerMessage --- DONE\n\n")
-	}()
+	// defer func() {
+	// 	shared.InfoLog("\n\n0 --- DONE\n\n")
+	// }()
 
 	for {
 		message := make([]byte, 256)
@@ -53,9 +53,8 @@ func getServerMessage(conn net.Conn, rcvd_msg chan string, exit_chan chan bool) 
 
 				shared.ErrorLog("Session terminated by server, exiting...")
 				defer func(exit_chan chan bool) {
-					exit_chan <- true
+					exit_chan <- true // will not block
 				}(exit_chan)
-				shared.InfoLog("Exited  getServerMessage")
 				return
 
 			} else {
@@ -74,9 +73,9 @@ func getServerMessage(conn net.Conn, rcvd_msg chan string, exit_chan chan bool) 
 
 func (cli *client) listenForServerMessages(ctx context.Context, conn net.Conn, msg_channel chan message_struct, term_chan chan bool, final_term_chan chan bool) {
 
-	defer func() {
-		shared.InfoLog("\n\nlistenForServerMessages --- DONE\n\n")
-	}()
+	// defer func() {
+	// 	shared.InfoLog("\n\n1 --- DONE\n\n")
+	// }()
 
 	rcvd_msg := make(chan string)
 	exit_chan := make(chan bool)
@@ -92,7 +91,7 @@ func (cli *client) listenForServerMessages(ctx context.Context, conn net.Conn, m
 			continue
 
 		case msg_str = <-rcvd_msg:
-			shared.InfoLog("temp") // Do nothing
+			// Do nothing
 
 		case <-exit_chan:
 			defer func(final_term_chan, term_chan chan bool) {
@@ -101,11 +100,9 @@ func (cli *client) listenForServerMessages(ctx context.Context, conn net.Conn, m
 				final_term_chan <- true
 
 			}(final_term_chan, term_chan)
-			shared.InfoLog("Exited listenForServerMessages")
 			return
 
 		case <-ctx.Done():
-			shared.InfoLog("hmmserver")
 			return
 
 		}
@@ -136,18 +133,18 @@ func (cli *client) listenForServerMessages(ctx context.Context, conn net.Conn, m
 func getClientMessage(sc bufio.Scanner, conn net.Conn, rcvd_msg chan string) {
 
 	defer func() {
-		shared.InfoLog("\n\ngetClientMessage --- DONE\n\n")
+		shared.InfoLog("\n\n2 --- DONE\n\n")
 	}()
+
 	for {
 		msg_rcvd := ""
-		shared.InfoLog("entered1 scanner")
+
 		if sc.Scan() { // user entered a message to send
-			shared.InfoLog("entered2 scanner")
+
 			// TODO: check size to prevent overflow
 			msg_rcvd = sc.Text()
 
 		} else {
-			shared.InfoLog("Exited scanner")
 			break
 		}
 
@@ -158,9 +155,9 @@ func getClientMessage(sc bufio.Scanner, conn net.Conn, rcvd_msg chan string) {
 
 func (cli *client) listenForClientMessages(ctx context.Context, sc bufio.Scanner, conn net.Conn, final_term_chan chan bool) {
 
-	defer func() {
-		shared.InfoLog("\n\nlistenForClientMessages --- DONE\n\n")
-	}()
+	// defer func() {
+	// 	shared.InfoLog("\n\n3 --- DONE\n\n")
+	// }()
 
 	message := ""
 	rcvd_msg := make(chan string)
@@ -175,14 +172,13 @@ func (cli *client) listenForClientMessages(ctx context.Context, sc bufio.Scanner
 			continue
 
 		case message = <-rcvd_msg:
-			shared.InfoLog("temp") // Do nothing
+			// Do nothing
 
 		case <-ctx.Done():
+
 			defer func(final_term_chan chan bool) {
-				final_term_chan <- true
-				shared.InfoLog("\n\nok\n\n")
+				final_term_chan <- true // will be received immediately
 			}(final_term_chan)
-			shared.InfoLog("Exited listenForClientMessages")
 			return
 
 		}
@@ -236,9 +232,10 @@ func randSeq(n int) string {
 
 func (cli *client) Run(ctx context.Context, main_term_chan chan bool) {
 
-	defer func() {
-		shared.InfoLog("\n\nRun --- DONE\n\n")
-	}()
+	// defer func() {
+	// 	shared.InfoLog("\n\n4 --- DONE\n\n")
+	// }()
+
 	// Connect to the server via a raw socket
 
 	// Check if host string is resolvable into tcp address
@@ -315,6 +312,7 @@ func (cli *client) Run(ctx context.Context, main_term_chan chan bool) {
 		case <-term_chan:
 
 			cancel()
+
 			<-final_term_chan
 			<-final_term_chan
 
@@ -322,7 +320,6 @@ func (cli *client) Run(ctx context.Context, main_term_chan chan bool) {
 
 			// }(main_term_chan)
 
-			shared.InfoLog("Exited Run")
 			return
 
 		case <-ctx.Done():
