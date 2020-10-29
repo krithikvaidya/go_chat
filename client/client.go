@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"time"
 
 	shared "github.com/krithikvaidya/go_chat/shared"
 )
@@ -36,10 +37,13 @@ func Client(password string, host string, username string) *client {
 
 }
 
-func (cli *client) listenForServerMessages(ctx context.Context, conn net.Conn, msg_channel chan message_struct, term_chan chan bool) {
+func getServerMessage(conn net.Conn, rcvd_msg chan string, exit_chan chan bool) {
+
+	defer func() {
+		shared.InfoLog("\n\ngetServerMessage --- DONE\n\n")
+	}()
 
 	for {
-
 		message := make([]byte, 256)
 		_, err := io.ReadFull(conn, message) // Receive message from server
 
@@ -48,7 +52,10 @@ func (cli *client) listenForServerMessages(ctx context.Context, conn net.Conn, m
 			if err.Error() == "EOF" {
 
 				shared.ErrorLog("Session terminated by server, exiting...")
-				term_chan <- true
+				defer func(exit_chan chan bool) {
+					exit_chan <- true
+				}(exit_chan)
+				shared.InfoLog("Exited  getServerMessage")
 				return
 
 			} else {
@@ -57,10 +64,51 @@ func (cli *client) listenForServerMessages(ctx context.Context, conn net.Conn, m
 				continue
 
 			}
-
 		}
 
-		msg_str := string(message) // error checking?
+		rcvd_msg <- string(message)
+
+	}
+
+}
+
+func (cli *client) listenForServerMessages(ctx context.Context, conn net.Conn, msg_channel chan message_struct, term_chan chan bool, final_term_chan chan bool) {
+
+	defer func() {
+		shared.InfoLog("\n\nlistenForServerMessages --- DONE\n\n")
+	}()
+
+	rcvd_msg := make(chan string)
+	exit_chan := make(chan bool)
+
+	go getServerMessage(conn, rcvd_msg, exit_chan)
+	msg_str := ""
+
+	for {
+
+		select {
+
+		case <-time.After(time.Second):
+			continue
+
+		case msg_str = <-rcvd_msg:
+			shared.InfoLog("temp") // Do nothing
+
+		case <-exit_chan:
+			defer func(final_term_chan, term_chan chan bool) {
+
+				term_chan <- true
+				final_term_chan <- true
+
+			}(final_term_chan, term_chan)
+			shared.InfoLog("Exited listenForServerMessages")
+			return
+
+		case <-ctx.Done():
+			shared.InfoLog("hmmserver")
+			return
+
+		}
 
 		f := func(c rune) bool {
 			return c == '~'
@@ -85,46 +133,93 @@ func (cli *client) listenForServerMessages(ctx context.Context, conn net.Conn, m
 
 }
 
-func (cli *client) listenForClientMessages(sc bufio.Scanner, conn net.Conn) {
+func getClientMessage(sc bufio.Scanner, conn net.Conn, rcvd_msg chan string) {
+
+	defer func() {
+		shared.InfoLog("\n\ngetClientMessage --- DONE\n\n")
+	}()
+	for {
+		msg_rcvd := ""
+		shared.InfoLog("entered1 scanner")
+		if sc.Scan() { // user entered a message to send
+			shared.InfoLog("entered2 scanner")
+			// TODO: check size to prevent overflow
+			msg_rcvd = sc.Text()
+
+		} else {
+			shared.InfoLog("Exited scanner")
+			break
+		}
+
+		rcvd_msg <- msg_rcvd
+	}
+
+}
+
+func (cli *client) listenForClientMessages(ctx context.Context, sc bufio.Scanner, conn net.Conn, final_term_chan chan bool) {
+
+	defer func() {
+		shared.InfoLog("\n\nlistenForClientMessages --- DONE\n\n")
+	}()
+
+	message := ""
+	rcvd_msg := make(chan string)
+
+	go getClientMessage(sc, conn, rcvd_msg)
 
 	for {
-		if sc.Scan() { // user entered a message to send
 
-			// TODO: check size to prevent overflow
-			msg_rcvd := sc.Text()
-			msg_rcvd = strings.Replace(msg_rcvd, "~", "&tld;", -1) // replace all occurences of ~
+		select {
 
-			// TODO: assume bad formatting of message is possible
-			first_space := strings.IndexByte(msg_rcvd, ' ')
-			second_space := first_space + 1 + strings.IndexByte(msg_rcvd[first_space+1:], ' ')
+		case <-time.After(time.Second):
+			continue
 
-			command := msg_rcvd[:first_space]
+		case message = <-rcvd_msg:
+			shared.InfoLog("temp") // Do nothing
 
-			msg_to_send := ""
+		case <-ctx.Done():
+			defer func(final_term_chan chan bool) {
+				final_term_chan <- true
+				shared.InfoLog("\n\nok\n\n")
+			}(final_term_chan)
+			shared.InfoLog("Exited listenForClientMessages")
+			return
 
-			if command == "/broadcast" {
-
-				msg_to_send = "broadcast~" + msg_rcvd[first_space+1:] + "~\n"
-
-			} else { // /pm
-
-				recipient := msg_rcvd[first_space+1 : second_space]
-				msg := msg_rcvd[second_space+1:]
-				msg_to_send = "pm~" + recipient + "~" + msg + "~\n"
-
-			}
-
-			msg_to_send = fmt.Sprintf("%-256v", msg_to_send)
-
-			bytes_sent, err := conn.Write([]byte(msg_to_send))
-
-			if err != nil {
-				shared.InfoLog(fmt.Sprintf("%s", err.Error()))
-				continue // continue the loop
-			}
-
-			shared.InfoLog(fmt.Sprintf("Sent %v bytes.", bytes_sent))
 		}
+
+		msg_rcvd := strings.Replace(message, "~", "&tld;", -1) // replace all occurences of ~
+
+		// TODO: assume bad formatting of message is possible
+		first_space := strings.IndexByte(msg_rcvd, ' ')
+		second_space := first_space + 1 + strings.IndexByte(msg_rcvd[first_space+1:], ' ')
+
+		command := msg_rcvd[:first_space]
+
+		msg_to_send := ""
+
+		if command == "/broadcast" {
+
+			msg_to_send = "broadcast~" + msg_rcvd[first_space+1:] + "~\n"
+
+		} else { // /pm
+
+			recipient := msg_rcvd[first_space+1 : second_space]
+			msg := msg_rcvd[second_space+1:]
+			msg_to_send = "pm~" + recipient + "~" + msg + "~\n"
+
+		}
+
+		msg_to_send = fmt.Sprintf("%-256v", msg_to_send)
+
+		bytes_sent, err := conn.Write([]byte(msg_to_send))
+
+		if err != nil {
+			shared.InfoLog(fmt.Sprintf("%s", err.Error()))
+			continue // continue the loop
+		}
+
+		shared.InfoLog(fmt.Sprintf("Sent %v bytes.", bytes_sent))
+
 	}
 
 }
@@ -139,8 +234,11 @@ func randSeq(n int) string {
 	return string(b)
 }
 
-func (cli *client) Run(ctx context.Context) {
+func (cli *client) Run(ctx context.Context, main_term_chan chan bool) {
 
+	defer func() {
+		shared.InfoLog("\n\nRun --- DONE\n\n")
+	}()
 	// Connect to the server via a raw socket
 
 	// Check if host string is resolvable into tcp address
@@ -154,7 +252,7 @@ func (cli *client) Run(ctx context.Context) {
 
 	if cli.Username == "" {
 		cli.Username = randSeq(10)
-		shared.InfoLog(fmt.Sprintf("\nuname is %s\n", cli.Username))
+		shared.InfoLog(fmt.Sprintf("\nYour randomly generated username is: %s\n", cli.Username))
 	}
 
 	auth_str := fmt.Sprintf("authenticate~%s~%s~\n", cli.ServerPassword, cli.Username)
@@ -190,9 +288,13 @@ func (cli *client) Run(ctx context.Context) {
 	// Listen for messages
 	msg_chan := make(chan message_struct)
 	term_chan := make(chan bool)
+	final_term_chan := make(chan bool)
 
-	go cli.listenForServerMessages(ctx, conn, msg_chan, term_chan)
-	go cli.listenForClientMessages(*sc, conn)
+	// Derive new context
+	newCtx, cancel := context.WithCancel(ctx)
+
+	go cli.listenForServerMessages(newCtx, conn, msg_chan, term_chan, final_term_chan)
+	go cli.listenForClientMessages(newCtx, *sc, conn, final_term_chan)
 
 	for {
 
@@ -200,11 +302,6 @@ func (cli *client) Run(ctx context.Context) {
 
 		select { // select supports only channels in the cases.
 
-		// case <-client.Context().Done():
-		// DebugLogf("client send loop disconnected")
-
-		// Don't think this works, so doing it using a separate goroutine + channel
-		// case message, err := ioutil.ReadFull(conn, 256):  // Receive message from server
 		case rcvd_msg := <-msg_chan:
 
 			msg_type := "broadcast"
@@ -216,6 +313,25 @@ func (cli *client) Run(ctx context.Context) {
 			shared.MessageLog(rcvd_msg.Sender, msg_type, rcvd_msg.Message)
 
 		case <-term_chan:
+
+			cancel()
+			<-final_term_chan
+			<-final_term_chan
+
+			// defer func(main_term_chan chan bool) {
+
+			// }(main_term_chan)
+
+			shared.InfoLog("Exited Run")
+			return
+
+		case <-ctx.Done():
+			shared.InfoLog("Received termination signal, exiting...")
+			cancel()
+			<-final_term_chan
+			<-final_term_chan
+			shared.InfoLog("Exited.")
+			main_term_chan <- true
 			return
 
 		}

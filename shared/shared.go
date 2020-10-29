@@ -6,6 +6,8 @@ import (
 	"runtime"
 )
 
+// Credits to https://twinnation.org/articles/35/how-to-add-colors-to-your-console-terminal-output-in-go for colourization.
+
 var Reset = "\033[0m"
 var Red = "\033[31m"
 var Green = "\033[32m"
@@ -18,7 +20,6 @@ var White = "\033[97m"
 
 func init() {
 
-	// Credits to https://twinnation.org/articles/35/how-to-add-colors-to-your-console-terminal-output-in-go for colourization.
 	if runtime.GOOS == "windows" {
 		Reset = ""
 		Red = ""

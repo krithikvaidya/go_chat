@@ -82,8 +82,10 @@ func main() {
 	os_sigs := make(chan os.Signal, 1)                      // Listen for OS signals, with buffer size 1
 	signal.Notify(os_sigs, syscall.SIGTERM, syscall.SIGINT) // SIGKILL and SIGSTOP cannot be caught by a program
 
+	main_term_chan := make(chan bool)
+
 	// Listen for shutdown signals on a separate thread
-	go func() {
+	go func(term_chan chan bool) {
 
 		format := "Listening for shutdown signal..."
 		shared.InfoLog(format)
@@ -98,9 +100,20 @@ func main() {
 
 		cancel()
 
+		for {
+			select {
+			case <-time.After(10 * time.Second):
+				shared.InfoLog("Timeout expired, force shutdown invoked.")
+				break
+			case <-main_term_chan:
+				shared.InfoLog("Shutdown complete successfully.")
+				break
+			}
+		}
+
 		os.Exit(0) // Exit entire program from a goroutine
 
-	}()
+	}(main_term_chan)
 
 	if serverMode {
 
@@ -111,8 +124,9 @@ func main() {
 	} else {
 
 		shared.InfoLog("Running in client mode...")
-		client.Client(password, host, username).Run(ctx)
-
+		client.Client(password, host, username).Run(ctx, main_term_chan)
+		os.Exit(0)
+		shared.InfoLog("last")
 	}
 
 }
