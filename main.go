@@ -20,9 +20,9 @@ TODO:
 add support for utf-8 https://medium.com/rungo/string-data-type-in-go-8af2b639478
 add prompt for entering a message
 stuff labelled as todo
-check if contexts are propogated properly
+check if contexts are propogated properly  -- DONE
 dockerize it  -- DONE
-allow for 1:1 communication (should be easy) -- done
+allow for 1:1 communication (should be easy) -- DONE
 
 Possible extensions:
 use gorilla websockets instead of raw sockets, get a web-based frontend
@@ -104,7 +104,7 @@ func main() {
 			select {
 			case <-time.After(10 * time.Second):
 				shared.InfoLog("Timeout expired, force shutdown invoked.")
-				break
+				os.Exit(0)
 			case <-main_term_chan:
 				shared.InfoLog("Shutdown complete successfully.")
 				break
@@ -125,7 +125,6 @@ func main() {
 
 		shared.InfoLog("Running in client mode...")
 		client.Client(password, host, username).Run(ctx, main_term_chan)
-		time.Sleep(5 * time.Second)
 	}
 
 }

@@ -103,6 +103,7 @@ func (cli *client) listenForServerMessages(ctx context.Context, conn net.Conn, m
 			return
 
 		case <-ctx.Done():
+			final_term_chan <- true
 			return
 
 		}
@@ -176,9 +177,7 @@ func (cli *client) listenForClientMessages(ctx context.Context, sc bufio.Scanner
 
 		case <-ctx.Done():
 
-			defer func(final_term_chan chan bool) {
-				final_term_chan <- true // will be received immediately
-			}(final_term_chan)
+			final_term_chan <- true // will be received immediately
 			return
 
 		}
@@ -327,7 +326,6 @@ func (cli *client) Run(ctx context.Context, main_term_chan chan bool) {
 			cancel()
 			<-final_term_chan
 			<-final_term_chan
-			shared.InfoLog("Exited.")
 			main_term_chan <- true
 			return
 
