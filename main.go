@@ -16,13 +16,6 @@ Protocol for sending/receiving messages:
 */
 
 /**
-TODO:
-add support for utf-8 https://medium.com/rungo/string-data-type-in-go-8af2b639478
-add prompt for entering a message
-stuff labelled as todo
-check if contexts are propogated properly  -- DONE
-dockerize it  -- DONE
-allow for 1:1 communication (should be easy) -- DONE
 
 Possible extensions:
 use gorilla websockets instead of raw sockets, get a web-based frontend
